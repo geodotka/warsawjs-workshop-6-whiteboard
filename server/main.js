@@ -5,16 +5,10 @@ Meteor.startup(() => {
 });
 
 
-Posts.allow({
-    insert(userId, doc) {
-//        return true;     // umożliwiamy wszystkim inserty
-        var user = Users.findOne(userId);
-        if (userId) {
-            return true;
-        }
-    },
-    update(){
-
+// meteor zaleca używać coś na wzór restowego api
+Meteor.methods({
+    // możęmy stworzyć metody, które będą odpowiadać konkretnym operacjom
+    createPost(doc) {
+        Posts.insert(doc);
     }
 });
-
