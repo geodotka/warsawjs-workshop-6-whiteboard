@@ -15,3 +15,11 @@ FlowRouter.route('/', {
         });
     }
 });
+
+FlowRouter.route('/boards/:id', {
+   action() {
+       BlazeLayout.render('Board', {    // wstawia template do defaultowego templata w głównej templatce
+           content: 'main'
+       })
+   }
+});

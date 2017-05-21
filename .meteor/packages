@@ -27,6 +27,6 @@ accounts-password       # system logowania i rejestracji
 accounts-ui
 msavin:mongol           # wtyczka do developmentu
 kadira:flow-router      # routing
-kadira:blaze-layout
+kadira:blaze-layout     # templatki przy routingu
 
 # gdy dodajemy coś do tego pliku, serwer automatycznie wykrywa, instaluje i się restartuje.
