@@ -1,3 +1,4 @@
+import { pick, throttle } from 'lodash';
 import { fabric } from 'fabric';
 import { Template } from 'meteor/templating';
 import { ReactiveVar } from 'meteor/reactive-var';
@@ -14,9 +15,26 @@ Template.Board.onCreated(function() {
         const boardId = FlowRouter.getParam('id');  // zmieni się na każdą zmianę id w urlu
         this.boardId.set(boardId);  // chcemy zapisać parametr na później
 
-        this.subscribe('boardById', boardId);   // subskrybcje są reaktywne automatycznie
+        this.subscribe('boardById', boardId);   // subskrybcje są reaktywne automatycznie, więc autorun jest tu potrzebny tylko po to, żeby przeładować stronę na zmianę urla bez ponownego renderowania
         this.subscribe('objectsByBoardId', boardId);
+
+        // Clear fabric object selection from session.
+        Session.delete('selectedObjectId');
     });
+
+    window.addEventListener('keydown', (e) => {
+    if (e.keyCode === 46) {
+        const selectedObjectId = Session.get('selectedObjectId');
+        if (!selectedObjectId) {
+            return;
+        }
+        Meteor.call('removeObject', selectedObjectId, (err) => {
+            if (err) {
+                alert(err.message);
+            }
+        });
+    }
+  });
 });
 
 
@@ -70,6 +88,63 @@ Template.Board.onRendered(function() {
             }
         });
         console.log('canvas:object:added', fabricObject.id);
+    });
+
+    canvas.on('object:modified', (e) => {
+        const fabricObject = e.target;
+        if (!fabricObject.id) {
+            // It's very unlikely but somehow fabric object is missing id. In such
+            // situation we can't update object in database. In theory it may happen
+            // when somebody removed object that we're modifying.
+            console.error(`Missing id at fabric object ${fabricObject}`);
+            return;
+        }
+        // Convert fabric object to JSON.
+        const object = fabricObject.toObject();
+        Meteor.call('updateObject', fabricObject.id, object, (err) => {
+            if (err) {
+                alert(err.message);
+            }
+        });
+        console.log('canvas:object:modified', fabricObject.id);
+    });
+
+    const updateObject = function(props) {
+        return throttle((e) => {
+            const fabricObject = e.target;
+            if (!fabricObject.id) {
+                // It's very unlikely but somehow fabric object is missing id. In such
+                // situation we can't update object in database. In theory it may happen
+                // when somebody removed object that we're modifying.
+                console.error(`Missing id at fabric object ${fabricObject}`);
+                return;
+            }
+            Meteor.call(
+                'updateObject',
+                fabricObject.id,
+                pick(fabricObject, props),
+                (err) => {
+                    if (err) {
+                        alert(err.message);
+                    }
+                }
+            );
+        }, 50);
+    };
+
+    canvas.on('object:moving', updateObject(['left', 'top']));
+    canvas.on('object:scaling', updateObject(['scaleX', 'scaleY']));
+    canvas.on('object:rotating', updateObject(['angle']));
+
+    canvas.on('object:selected', (e) => {
+        const fabricObject = e.target;
+        Session.set('selectedObjectId', fabricObject.id);
+        console.log('object:selected', fabricObject.id);
+    });
+
+    canvas.on('selection:cleared', (e) => {
+        Session.delete('selectedObjectId');
+        console.log('selection:cleared');
     });
 
     this.autorun(() => {
